@@ -1,0 +1,350 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Metric USDC/USDT 刷量工具</title>
+<style>
+  :root{--bg:#0a0c0f;--card:#11141a;--card2:#161a21;--line:#232a34;--text:#e8ecf2;--muted:#8b95a5;--accent:#c7e36c;--accent2:#7ee0c0;--danger:#ff6b6b;--ok:#57d38c;--warn:#ffb454}
+  *{box-sizing:border-box}
+  body{margin:0;background:radial-gradient(1200px 600px at 50% -200px,#17201a 0%,var(--bg) 60%);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;line-height:1.6}
+  .wrap{max-width:900px;margin:0 auto;padding:26px 20px 70px}
+  header{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-bottom:18px;flex-wrap:wrap}
+  h1{font-size:18px;margin:0}
+  .sub{color:var(--muted);font-size:12.5px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px 20px;margin-bottom:14px}
+  .card h2{font-size:14.5px;margin:0 0 8px;display:flex;gap:8px;align-items:center}
+  .num{width:22px;height:22px;border-radius:7px;background:#1b2129;border:1px solid var(--line);display:grid;place-items:center;font-size:12px;color:var(--accent)}
+  .hint{color:var(--muted);font-size:12.5px;margin:6px 0 12px}
+  .row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin:8px 0}
+  label{display:block;font-size:11.5px;color:var(--muted);margin-bottom:4px}
+  input,select{background:#0d1015;border:1px solid var(--line);border-radius:9px;color:var(--text);padding:8px 10px;font-size:13.5px;width:130px;outline:none}
+  button{background:var(--card2);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:9px 15px;font-size:13px;cursor:pointer;font-weight:600}
+  button:hover:not(:disabled){border-color:#39424f;background:#1b2129}
+  button:disabled{opacity:.5;cursor:not-allowed}
+  button.primary{background:linear-gradient(135deg,var(--accent),#a9d95a);color:#0c1407;border:none}
+  button.danger{background:#2a1616;border-color:#5a2a2a;color:#ff9c9c}
+  .kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:9px;margin-top:8px}
+  .kv div{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:8px 11px;font-size:11.5px;color:var(--muted)}
+  .kv b{display:block;color:var(--text);font-size:15px;font-weight:650;margin-top:2px;font-variant-numeric:tabular-nums}
+  .logbox{background:#0b0e12;border:1px solid var(--line);border-radius:12px;padding:10px;height:260px;overflow:auto;font-family:ui-monospace,Consolas,monospace;font-size:11.5px}
+  .log-line{padding:1px 0;color:var(--muted);white-space:pre-wrap;word-break:break-all}
+  .log-ok{color:var(--ok)} .log-err{color:var(--danger)} .log-info{color:var(--muted)} .log-warn{color:var(--warn)}
+  .pill{display:inline-block;padding:3px 9px;border-radius:999px;font-size:11.5px;border:1px solid var(--line);background:var(--card2);color:var(--muted)}
+  a{color:var(--accent2);text-decoration:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Metric 刷量工具 · USDC / USDT</h1>
+      <div class="sub">在 Metric 稳定币池来回换，赚交易积分；动你自己的钱包，无私钥托管。</div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <span id="wallet" class="pill">未连接</span>
+      <button id="btnConnect">连接钱包</button>
+    </div>
+  </header>
+
+  <div class="card">
+    <h2><span class="num">i</span> 池子现状</h2>
+    <div class="row" style="margin:0 0 10px">
+      <div style="min-width:340px;flex:1">
+        <label>选择池子</label>
+        <select id="poolSelect" style="width:100%">
+          <option value="yellow" selected>黄色池（别人的 · 深度 $67 万 · 单笔可大额）</option>
+          <option value="own">我的池（深度约 $5.8k · 单笔 ≤ $2,500）</option>
+        </select>
+      </div>
+    </div>
+    <div class="kv">
+      <div>来回成本（价差）<b id="spread">--</b></div>
+      <div>每 $10,000 来回成本<b id="cost10k">--</b></div>
+      <div>池子 TVL<b id="tvl">--</b></div>
+      <div>24h 成交<b id="vol">--</b></div>
+    </div>
+    <div class="hint" style="margin:8px 0 0">
+      池子 <a id="poolLink" href="#" target="_blank">--</a> · 路由器 <a id="routerLink" href="#" target="_blank">0x0220…9ab7</a>
+      <span id="capHint" style="color:#c9a77a"></span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="num">1</span> 授权</h2>
+    <div class="hint">第一次用先授权 USDC 和 USDT 给 Metric 路由器（各一笔，之后永久有效）。</div>
+    <div class="row">
+      <button id="btnApprove">授权 USDC + USDT</button>
+      <span class="pill">USDC：<span id="allowUsdc">--</span></span>
+      <span class="pill">USDT：<span id="allowUsdt">--</span></span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="num">2</span> 刷量</h2>
+    <div class="hint">
+      模式：<b>普通</b> = 每笔一次确认；<b>批量</b> = 多个来回打包成一笔交易（一次确认、一份 gas，链上仍是多次独立 swap）。
+    </div>
+    <div class="row">
+      <div>
+        <label>模式</label>
+        <select id="mode">
+          <option value="1">普通（1 笔/确认）</option>
+          <option value="5">批量 5 次/确认</option>
+          <option value="10" selected>批量 10 次/确认</option>
+          <option value="20">批量 20 次/确认</option>
+          <option value="40">批量 40 次/确认</option>
+          <option value="50">批量 50 次/确认</option>
+        </select>
+      </div>
+      <div>
+        <label>每笔金额（USDT）</label>
+        <input id="amount" type="number" value="2000" min="10" step="100" />
+      </div>
+      <div>
+        <label>总次数（1 次 = 一个方向）</label>
+        <input id="rounds" type="number" value="20" min="2" step="2" />
+      </div>
+      <div>
+        <label>间隔（秒）</label>
+        <input id="interval" type="number" value="3" min="1" step="1" />
+      </div>
+      <div>
+        <label>滑点（%）</label>
+        <input id="slippage" type="number" value="0.1" min="0.01" step="0.01" />
+      </div>
+    </div>
+    <div class="row">
+      <button id="btnStart" class="primary">开始</button>
+      <button id="btnStop" class="danger" disabled>停止</button>
+      <span class="pill" id="status">空闲</span>
+    </div>
+    <div class="kv" style="margin-top:10px">
+      <div>已完成成交额<b id="doneVol">$0</b></div>
+      <div>累计成本（价差+gas）<b id="doneCost">$0</b></div>
+      <div>每 $1,000 成本<b id="costPer1k">--</b></div>
+      <div>余额 USDT / USDC<b id="balances">--</b></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="num">›</span> 日志</h2>
+    <div class="logbox" id="log"></div>
+  </div>
+
+  <div class="card" style="border-color:#4a3320;background:#1a1208">
+    <div class="hint" style="margin:0;color:#c9a77a">
+      ⚠️ 只动用你愿意承担风险的资金。积分规则未公开、官方未承诺发币。稳定币有极小脱锚风险。每笔交易都由你在钱包确认。
+      批量模式会把多个来回打进一笔交易，如果 Metric 有反刷量规则，被识别概率略高 —— 建议先小额验证。
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
+<script>
+const CFG = {
+  chainId: 56, chainHex: "0x38", rpc: "https://bsc-rpc.publicnode.com", explorer: "https://bscscan.com",
+  pool: "0xb3aDeb4a72948f68CcdC8C958a0bE4BCEa3C0677",
+  router: "0x02201e6f13c41506c7bb635d7543f98826229ab7",
+  usdc: "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d", // token0
+  usdt: "0x55d398326f99059fF775485246999027B3197955", // token1
+};
+// 可切换的池子
+const POOLS = {
+  yellow: { addr: "0xb3aDeb4a72948f68CcdC8C958a0bE4BCEa3C0677", maxSwap: 20000, note: "别人的池子：价差全给别人，单笔可到 $20,000" },
+  own: { addr: "0x6c820C6D15A0b8381D901613bFd76C9De091092D", maxSwap: 2500, note: "自己的池子：价差 85% 回到你手里，但单笔别超过 $2,500（否则打穿 bin 范围）" },
+};
+let poolKey = "yellow";
+const poolAddr = () => POOLS[poolKey].addr;
+const ROUTER_ABI = [
+  "function exactInputSingle((address pool,address tokenIn,address tokenOut,bool zeroForOne,uint128 amountIn,uint128 amountOutMinimum,address recipient,uint256 deadline,uint128 priceLimitX64,bytes extensionData)) payable returns (uint256)",
+  "function multicall(bytes[] data) payable returns (bytes[] results)",
+];
+const ERC20 = ["function balanceOf(address) view returns (uint256)","function allowance(address,address) view returns (uint256)","function approve(address,uint256) returns (bool)"];
+const MAX = ethers.MaxUint256;
+const MAX_U128 = (1n << 128n) - 1n; // priceLimitX64 是 uint128，不能用 MaxUint256
+const $ = (id) => document.getElementById(id);
+const log = (msg, cls = "info") => {
+  const d = document.createElement("div");
+  d.className = "log-line log-" + cls;
+  d.textContent = new Date().toLocaleTimeString() + "  " + msg;
+  $("log").appendChild(d);
+  $("log").scrollTop = $("log").scrollHeight;
+};
+const fmtUsd = (x) => "$" + Number(x).toLocaleString(undefined, { maximumFractionDigits: 2 });
+
+let provider, signer, account, running = false;
+let stats = { vol: 0, cost: 0, n: 0 };
+
+async function connect() {
+  if (!window.ethereum) return log("没检测到钱包插件", "err");
+  provider = new ethers.BrowserProvider(window.ethereum);
+  await provider.send("eth_requestAccounts", []);
+  const net = await provider.getNetwork();
+  if (Number(net.chainId) !== CFG.chainId) {
+    try { await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: CFG.chainHex }] }); }
+    catch { return log("请手动切到 BNB Chain", "err"); }
+  }
+  signer = await provider.getSigner();
+  account = await signer.getAddress();
+  $("wallet").textContent = account.slice(0, 6) + "…" + account.slice(-4);
+  log("已连接 " + account, "ok");
+  await refresh();
+}
+
+async function refresh() {
+  const rp = new ethers.JsonRpcProvider(CFG.rpc, CFG.chainId);
+  const pool = poolAddr();
+  try {
+    const api = await (await fetch(`https://api.metric.xyz/public/v1/evm/56/metadata?addresses=${pool}&include24h=true`)).json();
+    const r = api.data[0];
+    const q = await new ethers.Contract(r.priceProviderAddress, ["function getQuote() returns (uint128,uint128,uint128)"], rp).getQuote.staticCall();
+    const F = (x) => Number(x) / 2 ** 64;
+    const rt = F(q[1]) / F(q[0]) - 1;
+    $("spread").textContent = (rt * 100).toFixed(4) + "%";
+    $("cost10k").textContent = fmtUsd(rt * 10000);
+    $("tvl").textContent = fmtUsd(r.tvlFiat || 0);
+    $("vol").textContent = fmtUsd(r.analytics24h?.volumeFiat || 0);
+  } catch (e) { log("读池子失败：" + e.message, "err"); }
+  $("poolLink").href = CFG.explorer + "/address/" + pool;
+  $("poolLink").textContent = pool.slice(0, 6) + "…" + pool.slice(-4);
+  $("capHint").textContent = " · " + POOLS[poolKey].note;
+  $("routerLink").href = CFG.explorer + "/address/" + CFG.router;
+  if (!signer) return;
+  const usdc = new ethers.Contract(CFG.usdc, ERC20, signer);
+  const usdt = new ethers.Contract(CFG.usdt, ERC20, signer);
+  const [bu, bc, au, ac] = await Promise.all([
+    usdt.balanceOf(account), usdc.balanceOf(account),
+    usdt.allowance(account, CFG.router), usdc.allowance(account, CFG.router),
+  ]);
+  $("balances").textContent = Number(ethers.formatUnits(bu, 18)).toFixed(0) + " / " + Number(ethers.formatUnits(bc, 18)).toFixed(0);
+  $("allowUsdc").textContent = ac > 10n ** 30n ? "无限" : Number(ethers.formatUnits(ac, 18)).toFixed(0);
+  $("allowUsdt").textContent = au > 10n ** 30n ? "无限" : Number(ethers.formatUnits(au, 18)).toFixed(0);
+}
+
+async function approve() {
+  if (!signer) return log("先连接钱包", "err");
+  try {
+    for (const [sym, addr] of [["USDC", CFG.usdc], ["USDT", CFG.usdt]]) {
+      const c = new ethers.Contract(addr, ERC20, signer);
+      const tx = await c.approve(CFG.router, MAX);
+      log(`授权 ${sym}：${tx.hash.slice(0, 12)}`, "warn");
+      await tx.wait();
+    }
+    log("授权完成", "ok");
+    await refresh();
+  } catch (e) { log("授权失败：" + (e.shortMessage || e.message), "err"); }
+}
+
+function paramsFor(useUsdt, amountIn, minOut) {
+  return {
+    pool: poolAddr(),
+    tokenIn: useUsdt ? CFG.usdt : CFG.usdc,
+    tokenOut: useUsdt ? CFG.usdc : CFG.usdt,
+    zeroForOne: !useUsdt,
+    amountIn,
+    amountOutMinimum: minOut,
+    recipient: account,
+    deadline: Math.floor(Date.now() / 1000) + 900,
+    priceLimitX64: useUsdt ? MAX_U128 : 0n,
+    extensionData: "0x",
+  };
+}
+
+const gasPriceBnb = 0.05e-9 * 600; // 0.05 gwei * BNB $600 → 每 gas 的美元成本（近似）
+
+async function singleSwap(amountHuman) {
+  const router = new ethers.Contract(CFG.router, ROUTER_ABI, signer);
+  const amountIn = ethers.parseUnits(amountHuman.toFixed(6), 18);
+  const tx = await router.exactInputSingle(paramsFor(true, amountIn, 0n));
+  const rc = await tx.wait();
+  const gas = Number(rc.gasUsed) * gasPriceBnb;
+  return { hash: tx.hash, gas, vol: amountHuman };
+}
+
+async function batchSwap(amountHuman, pairs) {
+  const router = new ethers.Contract(CFG.router, ROUTER_ABI, signer);
+  const amountIn = ethers.parseUnits(amountHuman.toFixed(6), 18);
+  const calls = [];
+  for (let i = 0; i < pairs; i++) {
+    const fwd = paramsFor(true, amountIn, 0n);
+    const out0 = await router.exactInputSingle.staticCall(fwd); // 模拟拿到实际输出
+    calls.push(router.interface.encodeFunctionData("exactInputSingle", [fwd]));
+    const back = paramsFor(false, (out0 * 99999n) / 100000n, 0n); // 留 0.001% 余量
+    calls.push(router.interface.encodeFunctionData("exactInputSingle", [back]));
+  }
+  const tx = await router.multicall(calls);
+  const rc = await tx.wait();
+  const gas = Number(rc.gasUsed) * gasPriceBnb;
+  return { hash: tx.hash, gas, vol: amountHuman * pairs * 2 };
+}
+
+async function start() {
+  if (!signer) return log("先连接钱包", "err");
+  const mode = Number($("mode").value);
+  const amount = Number($("amount").value);
+  const rounds = Number($("rounds").value);
+  const interval = Number($("interval").value) * 1000;
+  if (!(amount >= 10)) return log("金额太小", "err");
+
+  running = true;
+  $("btnStart").disabled = true;
+  $("btnStop").disabled = false;
+  $("status").textContent = "运行中";
+  log(`开始：${mode === 1 ? "普通" : "批量 " + mode + " 次/笔"} · 每笔 ${amount} USDT · 总 ${rounds} 次`, "ok");
+
+  let done = 0;
+  while (done < rounds && running) {
+    const left = rounds - done;
+    try {
+      if (mode === 1) {
+        const r = await singleSwap(amount);
+        stats.vol += r.vol; stats.cost += r.vol * 0.000006 + r.gas; stats.n += 1;
+        log(`#${stats.n} USDT→USDC ${amount} · ${r.hash.slice(0, 10)} · gas ${fmtUsd(r.gas)}`, "ok");
+        done += 1;
+      } else {
+        const pairs = Math.min(mode / 2, Math.floor(left / 2));
+        if (pairs < 1) break;
+        const r = await batchSwap(amount, pairs);
+        stats.vol += r.vol; stats.cost += r.vol * 0.000006 + r.gas; stats.n += pairs * 2;
+        log(`批量 ${pairs} 组（${pairs * 2} 次）· 成交 ${fmtUsd(r.vol)} · ${r.hash.slice(0, 10)} · gas ${fmtUsd(r.gas)}`, "ok");
+        done += pairs * 2;
+      }
+      $("doneVol").textContent = fmtUsd(stats.vol);
+      $("doneCost").textContent = fmtUsd(stats.cost);
+      $("costPer1k").textContent = stats.vol ? fmtUsd((stats.cost / stats.vol) * 1000) : "--";
+      await refresh();
+    } catch (e) {
+      log("失败：" + (e.shortMessage || e.message || "").slice(0, 140), "err");
+      break;
+    }
+    if (done < rounds) await new Promise((r) => setTimeout(r, interval));
+  }
+  running = false;
+  $("btnStart").disabled = false;
+  $("btnStop").disabled = true;
+  $("status").textContent = "已停止";
+  log(`结束：成交 ${fmtUsd(stats.vol)} · 成本 ${fmtUsd(stats.cost)} · 每 $1,000 ≈ ${stats.vol ? fmtUsd((stats.cost / stats.vol) * 1000) : "-"}`, "ok");
+  await refresh();
+}
+
+$("btnConnect").onclick = connect;
+$("btnApprove").onclick = approve;
+$("btnStart").onclick = start;
+$("btnStop").onclick = () => { running = false; log("停止信号：当前这笔完成后停止", "warn"); };
+$("poolSelect").onchange = async (e) => {
+  poolKey = e.target.value;
+  log("切换到 " + (poolKey === "own" ? "自己的池子" : "黄色池") + "：" + poolAddr(), "warn");
+  if (poolKey === "own") {
+    $("amount").value = "2000";
+    $("amount").max = "2500";
+    log("注意：自己的池子单笔别超过 $2,500，否则会打穿 bin 范围", "warn");
+  } else {
+    $("amount").max = "";
+  }
+  await refresh();
+};
+refresh();
+</script>
+</body>
+</html>
